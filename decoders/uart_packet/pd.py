@@ -51,7 +51,6 @@ class Decoder(srd.Decoder):
         {'id': 'break_time', 'desc': 'Detect packet end by idle time (us)', 'default': 2000},
         {'id': 'format', 'desc': 'Data format', 'default': 'hex',
             'values': ('ascii', 'dec', 'hex', 'oct', 'bin')},
-        {'id': 'print_sec', 'desc': 'Print start time (sec) in annotations', 'default': 'no', 'values': ('yes', 'no')},
     )
     annotations = (
         ('rx-packet', 'RX packet'),
@@ -73,19 +72,16 @@ class Decoder(srd.Decoder):
         self.packet_es = [0, 0]
         self.packet_valid = [True, True]
         self.max_len = 0
-        self.print_sec = False
         self.format = None
         self.break_time = 0
         self.break_samples = 0
         self.samplerate = 0
-        self.sampletime = 0
         self.reset(RX)
         self.reset(TX)
 
     def metadata(self, key, value):
         if key == srd.SRD_CONF_SAMPLERATE:
             self.samplerate = value
-            self.sampletime = 1.0 / self.samplerate
 
     def start(self):
         self.out_ann = self.register(srd.OUTPUT_ANN)
@@ -104,7 +100,6 @@ class Decoder(srd.Decoder):
         else:
             self.format = None
 
-        self.print_sec = self.options['print_sec'] == 'yes'
         self.accum_bytes = (deque(maxlen=self.max_len), deque(maxlen=self.max_len))
         self.break_samples = self.break_time * self.samplerate * 1e-6
 
@@ -139,13 +134,6 @@ class Decoder(srd.Decoder):
                 ann = Ann.PACKET_TX
             else:
                 ann = Ann.PACKET_TX_INVALID
-
-        if self.print_sec and self.sampletime:
-            packet_str = "{:8.3f} {:}{:}: ".format(
-                self.packet_ss[rxtx] * self.sampletime,
-                'TX' if rxtx == TX else 'RX',
-                '' if self.packet_valid[rxtx] else ' err',
-            ) + packet_str
 
         self.putg(self.packet_ss[rxtx], self.packet_es[rxtx], [ann, [packet_str, ]])
         self.reset(rxtx)
